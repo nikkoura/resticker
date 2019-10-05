@@ -11,6 +11,6 @@ fi
 if [[ $# -gt 0 ]]; then
   exec restic $*
 else
-  exec go-cron "$BACKUP_CRON" /usr/local/bin/backup
+  exec go-cron -s "$BACKUP_CRON" -p 0 --  /usr/local/bin/backup
 fi
 

@@ -1,32 +1,33 @@
 #
 # Builder image
 #
-FROM golang:1.12 AS builder
+FROM golang:1.12 AS cron-builder
+
+ARG GO_CRON_VERSION=0.0.8
+ARG GO_CRON_SHA256=7cd08752aa62ac744fc79def3e184f397447bd35c9aa9d6cbff0176aa3debcb5
+ARG GO_CRON_REPO=github.com/RandomSegFault
+
+RUN curl -sL -o go-cron.tar.gz https://${GO_CRON_REPO}/go-cron/archive/v${GO_CRON_VERSION}.tar.gz \
+ && echo "${GO_CRON_SHA256}  go-cron.tar.gz" | sha256sum -c - \
+ && tar xzf go-cron.tar.gz \
+ && mkdir -p $GOPATH/src/${GO_CRON_REPO}/ \
+ && mv go-cron-${GO_CRON_VERSION} ${GOPATH}/src/${GO_CRON_REPO}/go-cron \
+ && cd ${GOPATH}/src/${GO_CRON_REPO}/go-cron \
+ && go get \
+ && go build -ldflags "-linkmode external -extldflags -static" ./bin/go-cron.go \
+ && mv go-cron /usr/local/bin/go-cron
+
+FROM golang:1.12 AS restic-builder
 
 ARG RESTIC_VERSION=0.9.5
 ARG RESTIC_SHA256=e22208e946ede07f56ef60c1c89de817b453967663ce4867628dff77761bd429
-ARG GO_CRON_VERSION=0.0.2
-ARG GO_CRON_SHA256=ca2acebf00d61cede248b6ffa8dcb1ef5bb92e7921acff3f9d6f232f0b6cf67a
-
-RUN curl -sL -o go-cron.tar.gz https://github.com/michaloo/go-cron/archive/v${GO_CRON_VERSION}.tar.gz \
- && echo "${GO_CRON_SHA256}  go-cron.tar.gz" | sha256sum -c - \
- && tar xzf go-cron.tar.gz \
- && cd go-cron-${GO_CRON_VERSION} \
- && export GOBIN=$GOPATH/bin \
- && go get \
- && go build \
- && mv $GOPATH/bin/go-cron-${GO_CRON_VERSION} /usr/local/bin/go-cron \
- && cd .. \
- && rm go-cron.tar.gz go-cron-${GO_CRON_VERSION} -fR
 
 RUN curl -sL -o restic.tar.gz https://github.com/restic/restic/releases/download/v${RESTIC_VERSION}/restic-${RESTIC_VERSION}.tar.gz \
  && echo "${RESTIC_SHA256}  restic.tar.gz" | sha256sum -c - \
  && tar xzf restic.tar.gz \
  && cd restic-${RESTIC_VERSION} \
  && go run build.go \
- && mv restic /usr/local/bin/restic \
- && cd .. \
- && rm restic.tar.gz restic-${RESTIC_VERSION} -fR
+ && mv restic /usr/local/bin/restic
 
 #
 # Final image
@@ -38,7 +39,8 @@ RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/co
 
 ENV RESTIC_REPOSITORY /mnt/restic
 
-COPY --from=builder /usr/local/bin/* /usr/local/bin/
+COPY --from=cron-builder /usr/local/bin/* /usr/local/bin/
+COPY --from=restic-builder /usr/local/bin/* /usr/local/bin/
 COPY backup /usr/local/bin/
 COPY entrypoint /
 
