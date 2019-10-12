@@ -10,5 +10,4 @@ before_script:
   - docker pull gcr.io/gcp-runtimes/container-structure-test:latest
 
 script:
-  - docker run --rm gcr.io/gcp-runtimes/container-structure-test:latest test --image nikkoura/resticker:ci --config tests/pre-post-commands.yml
-
+  - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v `pwd`/tests:/tests/ gcr.io/gcp-runtimes/container-structure-test:latest test --image nikkoura/resticker:test --config /tests/pre-post-commands.yml

@@ -22,4 +22,3 @@ commandTests:
     expectedOutput: 
       - "pre-commands"
       - "/pre-commands"
-
