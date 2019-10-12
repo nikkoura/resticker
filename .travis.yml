@@ -1,0 +1,7 @@
+language: bash
+
+services:
+  - docker
+
+install:
+  - docker build -t nikkoura/resticker:ci .
