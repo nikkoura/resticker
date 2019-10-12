@@ -1,0 +1,25 @@
+schemaVersion: '2.0.0'
+
+globalEnvVars:
+  - key: "RESTIC_REPOSITORY"
+    value: "/var/backup"
+  - key: "RESTIC_PASSWORD"
+    value: "password"
+  - key: "RESTIC_BACKUP_SOURCES" #Default backup source: valid path. This will be overloaded with an invalid path to cause a restic backup failure
+    value: "/etc"
+
+commandTests:
+  - name: pre-command-successful
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "PRE_COMMANDS"
+        value: |-
+          echo "pre-commands"
+          true
+          echo "/pre-commands"
+    expectedOutput: 
+      - "pre-commands"
+      - "/pre-commands"
+

@@ -5,3 +5,10 @@ services:
 
 install:
   - docker build -t nikkoura/resticker:ci .
+
+before_script:
+  - docker pull gcr.io/gcp-runtimes/container-structure-test:latest
+
+script:
+  - docker run --rm gcr.io/gcp-runtimes/container-structure-test:latest test --image nikkoura/resticker:ci --config tests/pre-post-commands.yml
+
