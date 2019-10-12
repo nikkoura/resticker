@@ -9,7 +9,19 @@ globalEnvVars:
     value: "/etc"
 
 commandTests:
-  - name: pre-command-successful
+
+  # Tests that empty pre/post commands environment variables are correctly supported
+  - name: pre:unset backup:ok post-success:unset post-failure:unset post-exit:unset
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    expectedOutput:
+      - "Backup successful"
+
+  # ****************** PRE_COMMANDS tests ******************
+
+  # Tests that PRE_COMMANDS commands are correctly executed, and does not block backup if successful
+  - name: pre:ok backup:ok post-success:unset post-failure:unset post-exit:unset
     setup: [["restic", "init"]]
     command: "backup"
     teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
@@ -19,6 +31,341 @@ commandTests:
           echo "pre-commands"
           true
           echo "/pre-commands"
-    expectedOutput: 
+    expectedOutput:
       - "pre-commands"
       - "/pre-commands"
+      - "Backup successful"
+
+  # Tests that a PRE_COMMANDS with a non-zero return code, blocks the backup execution
+  - name: pre:fail backup:ok post-success:unset post-failure:unset post-exit:unset
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "PRE_COMMANDS"
+        value: |-
+          echo "pre-commands"
+          false
+          echo "/pre-commands"
+    expectedOutput:
+      - "pre-commands"
+    excludedOutput:
+      - "/pre-commands"
+      - "Backup successful"
+    exitCode: 1
+
+  # ****************** POST_COMMANDS_SUCCESS tests ******************
+
+  # Tests that POST_COMMANDS_SUCCESS commands are correctly executed when backup is successful
+  - name: pre:unset backup:ok post-success:ok post-failure:unset post-exit:unset
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_SUCCESS"
+        value: |-
+          echo "post-commands-success"
+          true
+          echo "/post-commands-success"
+    expectedOutput:
+      - "Backup successful"
+      - "post-commands-success"
+      - "/post-commands-success"
+
+  # Tests that POST_COMMANDS_SUCCESS commands are not executed when backup fails
+  - name: pre:unset backup:fail post-success:ok post-failure:unset post-exit:unset
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_SUCCESS"
+        value: |-
+          echo "post-commands-success"
+          true
+          echo "/post-commands-success"
+      - key: "RESTIC_BACKUP_SOURCES"
+        value: "/inexistant"
+    excludedOutput:
+      - "Backup successful"
+      - "post-commands-success"
+      - "/post-commands-success"
+
+  # Tests that POST_COMMANDS_SUCCESS commands are correctly interrupted when one command fails
+  - name: pre:unset backup:ok post-success:fail post-failure:unset post-exit:unset
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_SUCCESS"
+        value: |-
+          echo "post-commands-success"
+          false
+          echo "/post-commands-success"
+    expectedOutput:
+      - "Backup successful"
+      - "post-commands-success"
+    excludedOutput:
+      - "/post-commands-success"
+    exitCode: 1
+
+
+  # ****************** POST_COMMANDS_FAILURE tests ******************
+
+  # Tests that POST_COMMANDS_FAILURE commands are correctly executed when backup fails
+  - name: pre:unset backup:fail post-success:unset post-failure:ok post-exit:unset
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_FAILURE"
+        value: |-
+          echo "post-commands-failure"
+          true
+          echo "/post-commands-failure"
+      - key: "RESTIC_BACKUP_SOURCES"
+        value: "/inexistant"
+    expectedOutput:
+      - "post-commands-failure"
+      - "/post-commands-failure"
+    expectedError:
+      - "Fatal: all target directories/files do not exist"
+
+  # Tests that POST_COMMANDS_FAILURE commands are not executed when backup is successful
+  - name: pre:unset backup:ok post-success:unset post-failure:ok post-exit:unset
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_FAILURE"
+        value: |-
+          echo "post-commands-failure"
+          true
+          echo "/post-commands-failure"
+    expectedOutput:
+      - "Backup successful"
+    excludedOutput:
+      - "post-commands-failure"
+      - "/post-commands-failure"
+
+  # Tests that POST_COMMANDS_FAILURE commands are correctly interrupted when one command fails
+  - name: pre:unset backup:fail post-success:unset post-failure:fail post-exit:unset
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_FAILURE"
+        value: |-
+          echo "post-commands-failure"
+          false
+          echo "/post-commands-failure"
+      - key: "RESTIC_BACKUP_SOURCES"
+        value: "/inexistant"
+    expectedOutput:
+      - "post-commands-failure"
+    excludedOutput:
+      - "/post-commands-failure"
+    expectedError:
+      - "Fatal: all target directories/files do not exist"
+    exitCode: 1
+
+  # ****************** POST_COMMANDS_EXIT tests ******************
+
+  # Tests that POST_COMMANDS_EXIT commands are correctly executed when backup is successful
+  - name: pre:unset backup:ok post-success:unset post-failure:unset post-exit:ok
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          true
+          echo "/post-commands-exit"
+    expectedOutput:
+      - "Backup successful"
+      - "post-commands-exit"
+      - "/post-commands-exit"
+
+  # Tests that POST_COMMANDS_EXIT commands are correctly executed when backup fails
+  - name: pre:unset backup:fail post-success:unset post-failure:unset post-exit:ok
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          true
+          echo "/post-commands-exit"
+      - key: "RESTIC_BACKUP_SOURCES"
+        value: "/inexistant"
+    expectedOutput:
+      - "post-commands-exit"
+      - "/post-commands-exit"
+    expectedError:
+      - "Fatal: all target directories/files do not exist"
+
+  # Tests that POST_COMMANDS_EXIT commands are all executed, even if one of them fails
+  - name: pre:unset backup:ok post-success:unset post-failure:unset post-exit:fail
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          false
+          echo "/post-commands-exit"
+    expectedOutput:
+      - "post-commands-exit"
+      - "/post-commands-exit"
+
+  # Tests that POST_COMMANDS_EXIT commands are executed in presence of sucessful PRE_COMMANDS commands
+  - name: pre:ok backup:ok post-success:unset post-failure:unset post-exit:ok
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "PRE_COMMANDS"
+        value: |-
+          echo "pre-commands"
+          true
+          echo "/pre-commands"
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          true
+          echo "/post-commands-exit"
+    expectedOutput:
+      - "pre-commands"
+      - "/pre-commands"
+      - "Backup successful"
+      - "post-commands-exit"
+      - "/post-commands-exit"
+
+  # Tests that POST_COMMANDS_EXIT commands are executed after a PRE_COMMANDS fails
+  - name: pre:ko backup:ok post-success:unset post-failure:unset post-exit:ok
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "PRE_COMMANDS"
+        value: |-
+          echo "pre-commands"
+          false
+          echo "/pre-commands"
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          true
+          echo "/post-commands-exit"
+    expectedOutput:
+      - "pre-commands"
+      - "post-commands-exit"
+      - "/post-commands-exit"
+    excludedOutput:
+      - "/pre-commands"
+      - "Backup successful"
+    exitCode: 1
+
+  # Tests that POST_COMMANDS_EXIT commands are correctly executed in presence of sucessful POST_COMMANDS_SUCCESS commands
+  - name: pre:unset backup:ok post-success:ok post-failure:unset post-exit:ok
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_SUCCESS"
+        value: |-
+          echo "post-commands-success"
+          true
+          echo "/post-commands-success"
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          true
+          echo "/post-commands-exit"
+    expectedOutput:
+      - "Backup successful"
+      - "post-commands-success"
+      - "/post-commands-success"
+      - "post-commands-exit"
+      - "/post-commands-exit"
+
+  # Tests that POST_COMMANDS_EXIT commands are correctly executed after a POST_COMMANDS_SUCCESS fails
+  - name: pre:unset backup:ok post-success:fail post-failure:unset post-exit:ok
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_SUCCESS"
+        value: |-
+          echo "post-commands-success"
+          false
+          echo "/post-commands-success"
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          true
+          echo "/post-commands-exit"
+    expectedOutput:
+      - "Backup successful"
+      - "post-commands-success"
+      - "post-commands-exit"
+      - "/post-commands-exit"
+    excludedOutput:
+      - "/post-commands-success"
+    exitCode: 1
+
+  # Tests that POST_COMMANDS_EXIT commands are correctly executed in presence of sucessful POST_COMMANDS_FAILURE commands
+  - name: pre:unset backup:fail post-success:unset post-failure:ok post-exit:ok
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_FAILURE"
+        value: |-
+          echo "post-commands-failure"
+          true
+          echo "/post-commands-failure"
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          true
+          echo "/post-commands-exit"
+      - key: "RESTIC_BACKUP_SOURCES"
+        value: "/inexistant"
+    expectedOutput:
+      - "post-commands-failure"
+      - "/post-commands-failure"
+      - "post-commands-exit"
+      - "/post-commands-exit"
+    expectedError:
+      - "Fatal: all target directories/files do not exist"
+
+  # Tests that POST_COMMANDS_EXIT commands are correctly executed after a POST_COMMANDS_FAILURE fails
+  - name: pre:unset backup:fail post-success:unset post-failure:fail post-exit:ok
+    setup: [["restic", "init"]]
+    command: "backup"
+    teardown: [["sh", "-c rm -fr ${RESTIC_REPOSITORY}"]]
+    envVars:
+      - key: "POST_COMMANDS_FAILURE"
+        value: |-
+          echo "post-commands-failure"
+          false
+          echo "/post-commands-failure"
+      - key: "POST_COMMANDS_EXIT"
+        value: |-
+          echo "post-commands-exit"
+          true
+          echo "/post-commands-exit"
+      - key: "RESTIC_BACKUP_SOURCES"
+        value: "/inexistant"
+    expectedOutput:
+      - "post-commands-failure"
+      - "post-commands-exit"
+      - "/post-commands-exit"
+    excludedOutput:
+      - "/post-commands-failure"
+    expectedError:
+      - "Fatal: all target directories/files do not exist"
+    exitCode: 1
