@@ -68,7 +68,7 @@ You can add one or multiple commands by specifying the following environment var
 
 The commands specified in `PRE_COMMANDS` are executed one by one.
 
-## Execute commands prior to backup
+## Execute commands after backup
 
 It's possible to optionally execute commands (like restarting a temporarily stopped container, send a mail...) once the actual backup has finished. Like for pre-backup copmands, if you want to execute `docker` commands on the host, mount the Docker socket to the container.
 
