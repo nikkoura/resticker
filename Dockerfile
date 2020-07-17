@@ -1,7 +1,7 @@
 #
 # Builder image
 #
-FROM golang:1.12 AS cron-builder
+FROM golang:1.14.6 AS cron-builder
 
 ARG GO_CRON_VERSION=0.0.8
 ARG GO_CRON_SHA256=7cd08752aa62ac744fc79def3e184f397447bd35c9aa9d6cbff0176aa3debcb5
@@ -17,7 +17,7 @@ RUN curl -sL -o go-cron.tar.gz https://${GO_CRON_REPO}/go-cron/archive/v${GO_CRO
  && go build -ldflags "-linkmode external -extldflags -static" ./bin/go-cron.go \
  && mv go-cron /usr/local/bin/go-cron
 
-FROM golang:1.12 AS restic-builder
+FROM golang:1.14.6 AS restic-builder
 
 ARG RESTIC_VERSION=0.9.5
 ARG RESTIC_SHA256=e22208e946ede07f56ef60c1c89de817b453967663ce4867628dff77761bd429
